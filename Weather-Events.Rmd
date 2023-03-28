@@ -1,6 +1,6 @@
 ---
-title: "Harmful Weather Events"
-author: "pcordova"
+title: "Harmful Weather Events in the U.S. (1950-2011)"
+author: "Pedro Córdova"
 date: "`r Sys.Date()`"
 output: html_document
 ---
@@ -11,20 +11,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Synopsis
 
-This report aims to be an evaluation of damage caused by . Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
 ```{r cars}
 summary(cars)
 ```
+```{r}
+
+```
 
 ## Data Processing
 
-You can also embed plots, for example:
+National Weather Service Storm Data Documentation [download this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf")
 
 ```{r data}
-dowhttps://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2
+
 ```
 
 
