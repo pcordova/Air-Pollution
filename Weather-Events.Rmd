@@ -11,12 +11,19 @@ output: html_document
 
 ## Data Processing
 
+#### Reading Data
+
+First, let's do some "administrative", but necessary, preparation work.
+
+We are going to do some configuration, download and sub-setting data file, etc.
 ```{r}
 ## Turn off scientific notation globally
 options(scipen=999)
 
 ## Load required libraries
 library(knitr)
+library(kableExtra)
+library(DT)
 library(data.table)
 
 ## Download data file
@@ -40,12 +47,15 @@ stormData <- fread("./Data/stormData.csv.bz2",
                                              "cropUnits"))
 ```
 <br>
-Now, we have relevant data loaded into our workspace. 
+Now, we have the relevant data loaded into our workspace. 
 How its structure looks like?
 ```{r}
 str(stormData)
 ```
 <br>
+
+#### Cleaning Data
+
 What about data integrity/quality?  
 Let's check for `NA` values:
 ```{r}
@@ -53,37 +63,67 @@ cat("There exists", sum(is.na(stormData)),"NA values")
 ```
 Nice!  
 
-Now, let's take a look at data relevant to evaluate material loses.
+<br>
+Time to take a look at relevant data to evaluate material loses.
 
 As reported in [this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf") from the **National Weather Service Storm Data Documentation**:  
 
-> _Alphabetical characters used to signify magnitude include “K” for thousands,  
-“M” for millions, and “B” for billions._
+> _Alphabetical characters used to signify magnitude include “K” for thousands, “M” for millions, and “B” for billions._
 
-Those characters are contained in `propUnits` and `cropUnits` columns, let's see what there is inside:
+Those characters are contained in `propUnits` and `cropUnits` columns. Let's see what there is inside:
 ```{r}
-unique(stormData$Fatalities)
+unique(stormData$propUnits)
+unique(stormData$cropUnits)
+```
+As we can see, there is a lot of garbage that does not correspond to the required characters. Furthermore, we need the characters to be translated into numerical values in order to calculate the amount of material loss (e.g. `propDamage` values multiplied by `propUnits` values)
 
-unique(stormData$Injuries)
+To start, let's assume that lower case `b`, `m` and `k` where introduced instead of its upper case counterparts.
+<br>
+<br>
+First, let's create two columns filled with zeroes as a future containers for our units (B, M, K) as numeric values (1e+9, 1e+6, 1e+3):
+```{r}
+stormData[, `:=`(pUnits = 0,
+               cUnits = 0)
+          ]
+```
+<br>
+Second, let's translate characters to numeric values and assign them to their corresponding positions in the newly created columns:
+```{r}
+stormData[propUnits %in% c("K","k"), "pUnits" := 1e+3
+          ][propUnits %in% c("M","m"), "pUnits" := 1e+6
+            ][propUnits %in% c("B","b"), "pUnits" := 1e+9]
 
-stormData$pUnits <- 0
-stormData$cUnits <- 0
+stormData[cropUnits %in% c("K","k"), "cUnits" := 1e+3
+          ][cropUnits %in% c("M","m"), "cUnits" := 1e+6
+            ][cropUnits %in% c("B","b"), "cUnits" := 1e+9]
+```
+Now we are ready to do the math!
 
-stormData[propUnits %in% c("K","k"), "pUnits" := .(1e+3)
-          ][propUnits %in% c("M","m"), "pUnits" := .(1e+6)
-            ][propUnits %in% c("B","b"), "pUnits" := .(1e+9)]
-
-stormData[cropUnits %in% c("K","k"), "cUnits" := .(1e+3)
-          ][cropUnits %in% c("M","m"), "cUnits" := .(1e+6)
-            ][cropUnits %in% c("B","b"), "cUnits" := .(1e+9)]
+We need to know the monetary value of property and crop losses:
+```{r}
+stormData[, `:=`(propLoss = propDamage*pUnits,
+                 cropLoss = cropDamage*cUnits)
+          ]
 ```
 
+```{r}
+cost <- stormData[, .(Fatalities = sum(Fatalities),
+                      Injuries = sum(Injuries),
+                      propLoss = sum(propLoss),
+                      cropLoss = sum(cropLoss)),
+                      by = Event
+                  ]
 
+cost <- cost[Fatalities != 0 |
+             Injuries != 0 |
+             propLoss != 0 |
+             cropLoss != 0
+             ]
 
-```{r data}
+cost[order(-Fatalities,-Injuries,-propLoss,-cropLoss)] %>% datatable(caption = "Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)")
+
 
 ```
-
 
 
 # Results
