@@ -5,26 +5,32 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+
 
 ## Synopsis
 
-
+## Data Processing
 
 ```{r}
-if(!dir.exists("Data")) {dir.create("Data")}
+## Turn off scientific notation globally
+options(scipen=999)
 
-download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
-              "./Data/stormData.bz2", method = "curl")
-
+## Load required libraries
 library(knitr)
 library(data.table)
 
-stormData <- fread("./Data/stormData.bz2",
-                               select = c(7,8,23:28),
-                               col.names = c("State",
+## Download data file
+if(!dir.exists("Data")) {dir.create("Data")} ## Create directory to store the file
+
+if(!file.exists("./Data/stormData.csv.bz2")) {
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
+                  "./Data/stormData.csv.bz2", method = "curl")
+}
+
+## Read data file
+stormData <- fread("./Data/stormData.csv.bz2",
+                               select = c(7,8,23:28),        ## Select just relevant columns
+                               col.names = c("State",        ## Rename columns
                                              "Event",
                                              "Fatalities",
                                              "Injuries",
@@ -33,13 +39,46 @@ stormData <- fread("./Data/stormData.bz2",
                                              "cropDamage",
                                              "cropUnits"))
 ```
+<br>
+Now, we have relevant data loaded into our workspace. 
+How its structure looks like?
 ```{r}
+str(stormData)
+```
+<br>
+What about data integrity/quality?  
+Let's check for `NA` values:
+```{r}
+cat("There exists", sum(is.na(stormData)),"NA values")
+```
+Nice!  
 
+Now, let's take a look at data relevant to evaluate material loses.
+
+As reported in [this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf") from the **National Weather Service Storm Data Documentation**:  
+
+> _Alphabetical characters used to signify magnitude include “K” for thousands,  
+“M” for millions, and “B” for billions._
+
+Those characters are contained in `propUnits` and `cropUnits` columns, let's see what there is inside:
+```{r}
+unique(stormData$Fatalities)
+
+unique(stormData$Injuries)
+
+stormData$pUnits <- 0
+stormData$cUnits <- 0
+
+stormData[propUnits %in% c("K","k"), "pUnits" := .(1e+3)
+          ][propUnits %in% c("M","m"), "pUnits" := .(1e+6)
+            ][propUnits %in% c("B","b"), "pUnits" := .(1e+9)]
+
+stormData[cropUnits %in% c("K","k"), "cUnits" := .(1e+3)
+          ][cropUnits %in% c("M","m"), "cUnits" := .(1e+6)
+            ][cropUnits %in% c("B","b"), "cUnits" := .(1e+9)]
 ```
 
-## Data Processing
 
-National Weather Service Storm Data Documentation [download this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf")
 
 ```{r data}
 
