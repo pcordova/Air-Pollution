@@ -5,8 +5,6 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-
-
 ## Synopsis
 
 ## Data Processing
@@ -22,7 +20,6 @@ options(scipen=999)
 
 ## Load required libraries
 library(knitr)
-library(kableExtra)
 library(DT)
 library(data.table)
 
@@ -99,7 +96,7 @@ stormData[cropUnits %in% c("K","k"), "cUnits" := 1e+3
 ```
 Now we are ready to do the math!
 
-We need to know the monetary value of property and crop losses:
+We are going to calculate the monetary value of property and crop losses and tabulate the data:
 ```{r}
 stormData[, `:=`(propLoss = propDamage*pUnits,
                  cropLoss = cropDamage*cUnits)
@@ -120,10 +117,26 @@ cost <- cost[Fatalities != 0 |
              cropLoss != 0
              ]
 
-cost[order(-Fatalities,-Injuries,-propLoss,-cropLoss)] %>% datatable(caption = "Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)")
+cost[order(-Fatalities,-Injuries,-propLoss,-cropLoss)] %>% 
+    datatable(colnames = c('Property Loss' = 4, 'Crop Loss' = 5),
+              caption = "Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)",
+              rownames = FALSE,
+              options = list(dom = 'tp')) %>%
+        formatCurrency(c(4, 5), digits = 0)
 
 
 ```
 
 
 # Results
+
+Most harmful events to population health:
+```{r}
+cat("Deadliest weather event is", paste0(cost[which.max(cost$Fatalities),Event],"."),
+    "\nIt accounts for",cost[,max(Fatalities)],"fatalities between 1950 and 2011.")
+
+cat("Weather event causing more injuries in the same period (1950-2011) is",
+    paste0(cost[which.max(cost$Injuries),Event],"."), "\nIt accounts for",
+    cost[,max(Injuries)], "injuries.")
+```
+
