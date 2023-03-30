@@ -13,15 +13,16 @@ output: html_document
 
 First, let's do some "administrative", but necessary, preparation work.
 
-We are going to do some configuration, download and sub-setting data file, etc.
+We are going to do some configuration, download and sub-setting data file, load required libraries, etc.
 ```{r}
-## Turn off scientific notation globally
-options(scipen=999)
+options(scipen=999) ## Turn off scientific notation globally
 
 ## Load required libraries
 library(knitr)
-library(DT)
 library(data.table)
+library(DT)
+library(ggplot2)
+library(fiftystater)
 
 ## Download data file
 if(!dir.exists("Data")) {dir.create("Data")} ## Create directory to store the file
@@ -138,5 +139,13 @@ cat("Deadliest weather event is", paste0(cost[which.max(cost$Fatalities),Event],
 cat("Weather event causing more injuries in the same period (1950-2011) is",
     paste0(cost[which.max(cost$Injuries),Event],"."), "\nIt accounts for",
     cost[,max(Injuries)], "injuries.")
+```
+
+```{r}
+if(!file.exists("./Data/tl_rd22_us_state.zip")) {
+    download.file("https://www2.census.gov/geo/tiger/TIGER_RD18/LAYER/STATE/tl_rd22_us_state.zip",
+                  "./Data/tl_rd22_us_state.zip", method = "curl")
+}
+unzip("./Data/tl_rd22_us_state.zip", exdir = "./Data")
 ```
 

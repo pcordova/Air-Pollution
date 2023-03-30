@@ -1,11 +1,11 @@
 if(!dir.exists("Data")) {dir.create("Data")}
 
-download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
-              "./Data/stormData.bz2", method = "curl")
+download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
+              "./Data/statesCoord.csv", method = "curl")
 
 library(data.table)
 
-stormData <- fread("./Data/stormData.bz2",
+stormData <- fread("./Data/stormData.csv.bz2",
                                select = c(7,8,23:28),
                                col.names = c("State",
                                              "Event",
@@ -16,6 +16,9 @@ stormData <- fread("./Data/stormData.bz2",
                                              "cropDamage",
                                              "cropUnits"))
 
+states <- fread("./Data/statesCoord.csv",
+                col.names = c("state","location","lat","lon"))
+
 str(stormData)
 
 cat(sum(is.na(stormData)))
@@ -25,7 +28,7 @@ unique(stormData$Fatalities)
 unique(stormData$Injuries)
 
 
-
+unique(stormData$State)
 
 
 
@@ -62,3 +65,13 @@ aggregate(cbind(stormData$Fatalities, stormData$Injuries), list(stormData$Event)
 
 
 ## 
+
+
+
+dang <- stormData[, .(Fatalities = sum(Fatalities),
+                      Injuries = sum(Injuries),
+                      propLoss = sum(propLoss),
+                      cropLoss = sum(cropLoss)),
+                      by = State
+                  ]
+
