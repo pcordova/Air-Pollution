@@ -22,6 +22,7 @@ library(knitr)
 library(data.table)
 library(DT)
 library(ggplot2)
+#library(mapproj)
 library(fiftystater)
 
 ## Download data file
@@ -35,10 +36,10 @@ if(!file.exists("./Data/stormData.csv.bz2")) {
 ## Read data file
 stormData <- fread("./Data/stormData.csv.bz2",
                                select = c(7,8,23:28),        ## Select just relevant columns
-                               col.names = c("State",        ## Rename columns
-                                             "Event",
-                                             "Fatalities",
-                                             "Injuries",
+                               col.names = c("state",        ## Rename columns
+                                             "event",
+                                             "fatalities",
+                                             "injuries",
                                              "propDamage",
                                              "propUnits",
                                              "cropDamage",
@@ -105,20 +106,20 @@ stormData[, `:=`(propLoss = propDamage*pUnits,
 ```
 
 ```{r}
-cost <- stormData[, .(Fatalities = sum(Fatalities),
-                      Injuries = sum(Injuries),
+cost <- stormData[, .(fatalities = sum(fatalities),
+                      injuries = sum(injuries),
                       propLoss = sum(propLoss),
                       cropLoss = sum(cropLoss)),
-                      by = Event
+                      by = event
                   ]
 
-cost <- cost[Fatalities != 0 |
-             Injuries != 0 |
+cost <- cost[fatalities != 0 |
+             injuries != 0 |
              propLoss != 0 |
              cropLoss != 0
              ]
 
-cost[order(-Fatalities,-Injuries,-propLoss,-cropLoss)] %>% 
+cost[order(-fatalities,-injuries,-propLoss,-cropLoss)] %>% 
     datatable(colnames = c('Property Loss' = 4, 'Crop Loss' = 5),
               caption = "Table: Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)",
               rownames = FALSE,
@@ -133,31 +134,42 @@ cost[order(-Fatalities,-Injuries,-propLoss,-cropLoss)] %>%
 
 Most harmful events to population health:
 ```{r}
-cat("Deadliest weather event:", paste0(cost[which.max(cost$Fatalities),Event],"."),
-    "\nIt accounts for",cost[,max(Fatalities)],"fatalities between 1950 and 2011.")
+cat("Deadliest weather event:", paste0(cost[which.max(cost$fatalities),event],"."),
+    "\nIt accounts for",cost[,max(fatalities)],"fatalities between 1950 and 2011.")
 
 cat("Weather event causing more injuries in the same period (1950-2011):",
-    paste0(cost[which.max(cost$Injuries),Event],"."), "\nIt accounts for",
-    cost[,max(Injuries)], "injuries.")
+    paste0(cost[which.max(cost$injuries),event],"."), "\nIt accounts for",
+    cost[,max(injuries)], "injuries.")
 ```
 
 ```{r}
+if(!file.exists("./Data/stormData.csv.bz2")) {
 download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
               "./Data/statesCoord.csv", method = "curl")
+}
 
 states <- fread("./Data/statesCoord.csv", col.names = c("state","location","lat","lon"))
 
-dang <- stormData[, .(Fatalities = sum(Fatalities),
-                      Injuries = sum(Injuries),
+dang <- stormData[, .(fatalities = sum(fatalities),
+                      injuries = sum(injuries),
                       propLoss = sum(propLoss),
                       cropLoss = sum(cropLoss)),
-                      by = State
+                      by = state
                   ]
-dang2 <- dang[State %in% states$state]
+mapdata <- dang[state %in% states$state]
 
-setorder(dang2,State)
+setorder(mapdata,state)
 setorder(states,state)
 
-dang2 <- cbind(dang2,states[,.(location,lat,lon)])
+mapdata <- cbind(mapdata,states[,.(location,lat,lon)])
+```
+
+```{r}
+
+ggplot() + geom_polygon(data=fifty_states, aes(x=long, y=lat, group = group),color="white", fill="grey92" ) + 
+  geom_point(data=mapdata, aes(x=lon, y=lat, size = fatalities), color="blue") + 
+  scale_size(name="", range = c(2, 20)) + 
+  guides(size=guide_legend("Fatalities 1950-2011")) +
+  theme_void()
 ```
 

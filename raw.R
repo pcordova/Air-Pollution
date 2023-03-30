@@ -32,7 +32,7 @@ setorder(dang2,State)
 setorder(states,state)
 
 
-
+mapdata$Fatalities <- as.integer(mapdata$Fatalities)
 
 
 
@@ -62,17 +62,45 @@ list(stormData$Event), sum)
 
 
 ## 
-if(!file.exists("./Data/tl_rd22_us_state.zip")) {
-    download.file("https://www2.census.gov/geo/tiger/TIGER_RD18/LAYER/STATE/tl_rd22_us_state.zip",
-                  "./Data/tl_rd22_us_state.zip", method = "curl")
-}
-unzip("./Data/tl_rd22_us_state.zip", exdir = "./Data")
+ggplot() +
+    geom_polygon(data=fifty_states, aes(x=long, y=lat, group = group),color="white", fill="grey92" ) + 
+  geom_point(data=mapdata, aes(x=lon, y=lat, size = Fatalities), color="blue") + 
+  scale_size(name="", range = c(2, 20)) + 
+  guides(size=guide_legend("Fatalities 1950-2011")) +
+  theme_void()
+
+ggplot(mapdata, aes(map_id = tolower(mapdata$location))) +
+    geom_map(aes(fill = Fatalities), map = fifty_states) + 
+  expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+  coord_map() +
+  scale_x_continuous(breaks = NULL) + 
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "", y = "") +
+  theme(legend.position = "bottom", 
+        panel.background = element_blank())
 
 
-dang <- stormData[, .(Fatalities = sum(Fatalities),
-                      Injuries = sum(Injuries),
-                      propLoss = sum(propLoss),
-                      cropLoss = sum(cropLoss)),
-                      by = State
-                  ]
+
+ +
+  coord_map() +
+ +
+   +
+  theme(legend.position = "bottom", 
+        panel.background = element_blank())
+
+
+p <- ggplot(mapdata, aes(map_id = location)) + 
+     geom_map(aes(fill = Fatalities), map = fifty_states) + 
+     expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+     coord_map() +
+     scale_x_continuous(breaks = NULL) + 
+     scale_y_continuous(breaks = NULL) +
+     labs(x = "", y = "") +
+     theme(legend.position = "bottom", 
+          panel.background = element_blank())
+p
+
+mapdata <- as.data.frame(mapdata)
+cla
+
 
