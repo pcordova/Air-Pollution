@@ -19,30 +19,27 @@ stormData <- fread("./Data/stormData.csv.bz2",
 states <- fread("./Data/statesCoord.csv",
                 col.names = c("state","location","lat","lon"))
 
-str(stormData)
-
-cat(sum(is.na(stormData)))
-
-unique(stormData$Fatalities)
-
-unique(stormData$Injuries)
 
 
-unique(stormData$State)
+dang2 <- dang
+for (i in nrow(dang):1) {
+    if(!(dang$State[i] %in% states$state)) {dang2 <- dang2[-i,]}   
+}
 
 
-
+dang2 <- dang[State %in% states$state]
+setorder(dang2,State)
+setorder(states,state)
 
 
 
 
-cat(NROW(unique(stormData$Event)))
 
-unique(stormData$propUnits)
 
-unique(stormData$cropUnits)
 
-aggregate(cbind(stormData$Fatalities, stormData$Injuries), list(stormData$Event), sum)
+?aggregate
+aggregate(cbind(stormData$Fatalities, stormData$Injuries)
+list(stormData$Event), sum)
 
 
 
@@ -65,7 +62,11 @@ aggregate(cbind(stormData$Fatalities, stormData$Injuries), list(stormData$Event)
 
 
 ## 
-
+if(!file.exists("./Data/tl_rd22_us_state.zip")) {
+    download.file("https://www2.census.gov/geo/tiger/TIGER_RD18/LAYER/STATE/tl_rd22_us_state.zip",
+                  "./Data/tl_rd22_us_state.zip", method = "curl")
+}
+unzip("./Data/tl_rd22_us_state.zip", exdir = "./Data")
 
 
 dang <- stormData[, .(Fatalities = sum(Fatalities),

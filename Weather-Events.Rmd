@@ -120,9 +120,9 @@ cost <- cost[Fatalities != 0 |
 
 cost[order(-Fatalities,-Injuries,-propLoss,-cropLoss)] %>% 
     datatable(colnames = c('Property Loss' = 4, 'Crop Loss' = 5),
-              caption = "Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)",
+              caption = "Table: Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)",
               rownames = FALSE,
-              options = list(dom = 'tp')) %>%
+              options = list(dom = 'ftp')) %>%
         formatCurrency(c(4, 5), digits = 0)
 
 
@@ -133,19 +133,31 @@ cost[order(-Fatalities,-Injuries,-propLoss,-cropLoss)] %>%
 
 Most harmful events to population health:
 ```{r}
-cat("Deadliest weather event is", paste0(cost[which.max(cost$Fatalities),Event],"."),
+cat("Deadliest weather event:", paste0(cost[which.max(cost$Fatalities),Event],"."),
     "\nIt accounts for",cost[,max(Fatalities)],"fatalities between 1950 and 2011.")
 
-cat("Weather event causing more injuries in the same period (1950-2011) is",
+cat("Weather event causing more injuries in the same period (1950-2011):",
     paste0(cost[which.max(cost$Injuries),Event],"."), "\nIt accounts for",
     cost[,max(Injuries)], "injuries.")
 ```
 
 ```{r}
-if(!file.exists("./Data/tl_rd22_us_state.zip")) {
-    download.file("https://www2.census.gov/geo/tiger/TIGER_RD18/LAYER/STATE/tl_rd22_us_state.zip",
-                  "./Data/tl_rd22_us_state.zip", method = "curl")
-}
-unzip("./Data/tl_rd22_us_state.zip", exdir = "./Data")
+download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
+              "./Data/statesCoord.csv", method = "curl")
+
+states <- fread("./Data/statesCoord.csv", col.names = c("state","location","lat","lon"))
+
+dang <- stormData[, .(Fatalities = sum(Fatalities),
+                      Injuries = sum(Injuries),
+                      propLoss = sum(propLoss),
+                      cropLoss = sum(cropLoss)),
+                      by = State
+                  ]
+dang2 <- dang[State %in% states$state]
+
+setorder(dang2,State)
+setorder(states,state)
+
+dang2 <- cbind(dang2,states[,.(location,lat,lon)])
 ```
 
