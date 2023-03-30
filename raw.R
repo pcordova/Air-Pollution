@@ -1,31 +1,28 @@
-if(!dir.exists("Data")) {dir.create("Data")}
 
-download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
-              "./Data/statesCoord.csv", method = "curl")
 
-library(data.table)
+################################################################################
 
-stormData <- fread("./Data/stormData.csv.bz2",
-                               select = c(7,8,23:28),
-                               col.names = c("State",
-                                             "Event",
-                                             "Fatalities",
-                                             "Injuries",
-                                             "propDamage",
-                                             "propUnits",
-                                             "cropDamage",
-                                             "cropUnits"))
+ggplot(longdata, aes(map_id = location)) +
+  # map points to the fifty_states shape data
+  geom_map(aes(fill = fatalities), map = fifty_states) + 
+  expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+  coord_map() +
+  scale_x_continuous(breaks = NULL) + 
+  scale_y_continuous(breaks = NULL) +
+  labs(x = "", y = "") +
+  theme(legend.position = "right") +
+  facet_wrap( ~ effect, dir = "h")
 
-states <- fread("./Data/statesCoord.csv",
-                col.names = c("state","location","lat","lon"))
+################################################################################
 
 
 
-dang2 <- dang
-for (i in nrow(dang):1) {
-    if(!(dang$State[i] %in% states$state)) {dang2 <- dang2[-i,]}   
-}
-
+longdata <- rbind(cbind(effect = "Fatalities", mapdata[,location,fatalities]),
+                  cbind(effect = "Injuries", mapdata[,location,injuries]),
+                #  cbind(effect = "Property Loss", mapdata[,location,propLoss]),
+                 # cbind(effect = "Crop Loss", mapdata[,location,cropLoss]),
+                  use.names=FALSE)
+                  
 
 dang2 <- dang[State %in% states$state]
 setorder(dang2,State)
@@ -38,7 +35,7 @@ mapdata$Fatalities <- as.integer(mapdata$Fatalities)
 
 
 ?aggregate
-aggregate(cbind(stormData$Fatalities, stormData$Injuries)
+aggregate(mapdata,cbind(stormData$Fatalities, stormData$Injuries)
 list(stormData$Event), sum)
 
 
@@ -63,21 +60,22 @@ list(stormData$Event), sum)
 
 ## 
 ggplot() +
-    geom_polygon(data=fifty_states, aes(x=long, y=lat, group = group),color="white", fill="grey92" ) + 
-  geom_point(data=mapdata, aes(x=lon, y=lat, size = Fatalities), color="blue") + 
+    geom_polygon(data=fifty_states, aes(x=long, y=lat, group = group),color="#DDEDF3", fill="#193B48" ) + 
+  geom_point(data=mapdata, aes(x=lon, y=lat, size = fatalities), color="#337995") + 
   scale_size(name="", range = c(2, 20)) + 
   guides(size=guide_legend("Fatalities 1950-2011")) +
   theme_void()
 
 ggplot(mapdata, aes(map_id = tolower(mapdata$location))) +
-    geom_map(aes(fill = Fatalities), map = fifty_states) + 
+    geom_map(aes(fill = cropLoss), map = fifty_states) + 
   expand_limits(x = fifty_states$long, y = fifty_states$lat) +
   coord_map() +
   scale_x_continuous(breaks = NULL) + 
   scale_y_continuous(breaks = NULL) +
   labs(x = "", y = "") +
   theme(legend.position = "bottom", 
-        panel.background = element_blank())
+        panel.background = element_blank()) +
+    fifty_states_inset_boxes()
 
 
 
@@ -90,7 +88,7 @@ ggplot(mapdata, aes(map_id = tolower(mapdata$location))) +
 
 
 p <- ggplot(mapdata, aes(map_id = location)) + 
-     geom_map(aes(fill = Fatalities), map = fifty_states) + 
+     geom_map(aes(fill = fatalities), map = fifty_states) + 
      expand_limits(x = fifty_states$long, y = fifty_states$lat) +
      coord_map() +
      scale_x_continuous(breaks = NULL) + 
@@ -100,7 +98,6 @@ p <- ggplot(mapdata, aes(map_id = location)) +
           panel.background = element_blank())
 p
 
-mapdata <- as.data.frame(mapdata)
-cla
+
 
 

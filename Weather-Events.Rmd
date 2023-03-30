@@ -63,7 +63,7 @@ cat("There exists", sum(is.na(stormData)),"NA values")
 Nice!  
 
 <br>
-Time to take a look at relevant data to evaluate material loses.
+Time to take a look at relevant data to evaluate material losses.
 
 As reported in [this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf") from the **National Weather Service Storm Data Documentation**:  
 
@@ -81,12 +81,10 @@ To start, let's assume that lower case `b`, `m` and `k` where introduced instead
 <br>
 First, let's create two columns filled with zeroes as a future containers for our units (B, M, K) as numeric values (1e+9, 1e+6, 1e+3):
 ```{r}
-stormData[, `:=`(pUnits = 0,
-               cUnits = 0)
-          ]
+stormData[, `:=`(pUnits = 0, cUnits = 0)]
 ```
 <br>
-Second, let's translate characters to numeric values and assign them to their corresponding positions in the newly created columns:
+Second, let's translate characters to numeric values and assign them to their corresponding positions in the recently created columns:
 ```{r}
 stormData[propUnits %in% c("K","k"), "pUnits" := 1e+3
           ][propUnits %in% c("M","m"), "pUnits" := 1e+6
@@ -100,9 +98,7 @@ Now we are ready to do the math!
 
 We are going to calculate the monetary value of property and crop losses and tabulate the data:
 ```{r}
-stormData[, `:=`(propLoss = propDamage*pUnits,
-                 cropLoss = cropDamage*cUnits)
-          ]
+stormData[, `:=`(propLoss = propDamage*pUnits, cropLoss = cropDamage*cUnits)]
 ```
 
 ```{r}
@@ -113,18 +109,14 @@ cost <- stormData[, .(fatalities = sum(fatalities),
                       by = event
                   ]
 
-cost <- cost[fatalities != 0 |
-             injuries != 0 |
-             propLoss != 0 |
-             cropLoss != 0
-             ]
+cost <- cost[fatalities != 0 | injuries != 0 | propLoss != 0 | cropLoss != 0]
 
 cost[order(-fatalities,-injuries,-propLoss,-cropLoss)] %>% 
-    datatable(colnames = c('Property Loss' = 4, 'Crop Loss' = 5),
+     datatable(colnames = c('Property Loss' = 4, 'Crop Loss' = 5),
               caption = "Table: Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)",
               rownames = FALSE,
               options = list(dom = 'ftp')) %>%
-        formatCurrency(c(4, 5), digits = 0)
+     formatCurrency(c(4, 5), digits = 0)
 
 
 ```
@@ -144,7 +136,7 @@ cat("Weather event causing more injuries in the same period (1950-2011):",
 
 ```{r}
 if(!file.exists("./Data/stormData.csv.bz2")) {
-download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
+    download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
               "./Data/statesCoord.csv", method = "curl")
 }
 
@@ -162,6 +154,7 @@ setorder(mapdata,state)
 setorder(states,state)
 
 mapdata <- cbind(mapdata,states[,.(location,lat,lon)])
+mapdata[,`:=` (location = tolower(location))]
 ```
 
 ```{r}
