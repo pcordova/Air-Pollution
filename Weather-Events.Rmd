@@ -2,32 +2,39 @@
 title: "Harmful Weather Events in the U.S. (1950-2011)"
 author: "Pedro Córdova"
 date: "`r Sys.Date()`"
-output: html_document
+output:
+    html_document: 
+      theme: flatly
+      highlight: pygments
+      toc: yes
+      toc_depth: 5
 ---
 
 ## Synopsis
 
 ## Data Processing
 
-#### Reading Data
+#### Downloading and Reading Data
 
 First, let's do some "administrative", but necessary, preparation work.
 
 We are going to do some configuration, download and sub-setting data file, load required libraries, etc.
 ```{r}
-options(scipen=999) ## Turn off scientific notation globally
+options(scipen=999) # Turn off scientific notation globally
 
 ## Load required libraries
 library(knitr)
 library(data.table)
 library(DT)
 library(ggplot2)
-#library(mapproj)
 library(fiftystater)
+library(patchwork)
+library(ggsn) # for scale bar
+
+## Create directory to store the file
+if(!dir.exists("Data")) {dir.create("Data")}
 
 ## Download data file
-if(!dir.exists("Data")) {dir.create("Data")} ## Create directory to store the file
-
 if(!file.exists("./Data/stormData.csv.bz2")) {
     download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2",
                   "./Data/stormData.csv.bz2", method = "curl")
@@ -35,8 +42,8 @@ if(!file.exists("./Data/stormData.csv.bz2")) {
 
 ## Read data file
 stormData <- fread("./Data/stormData.csv.bz2",
-                               select = c(7,8,23:28),        ## Select just relevant columns
-                               col.names = c("state",        ## Rename columns
+                               select = c(7,8,23:28),        # Select just relevant columns
+                               col.names = c("state",        # Rename columns
                                              "event",
                                              "fatalities",
                                              "injuries",
@@ -46,7 +53,7 @@ stormData <- fread("./Data/stormData.csv.bz2",
                                              "cropUnits"))
 ```
 <br>
-Now, we have the relevant data loaded into our workspace. 
+Now, we have all the relevant data loaded into our workspace. 
 How its structure looks like?
 ```{r}
 str(stormData)
@@ -69,16 +76,18 @@ As reported in [this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer
 
 > _Alphabetical characters used to signify magnitude include “K” for thousands, “M” for millions, and “B” for billions._
 
+<br>
 Those characters are contained in `propUnits` and `cropUnits` columns. Let's see what there is inside:
 ```{r}
 unique(stormData$propUnits)
 unique(stormData$cropUnits)
 ```
-As we can see, there is a lot of garbage that does not correspond to the required characters. Furthermore, we need the characters to be translated into numerical values in order to calculate the amount of material loss (e.g. `propDamage` values multiplied by `propUnits` values)
+As we can see, in both columns there is a lot of garbage that does not correspond to the required characters. Furthermore, we need the characters to be translated into numerical values in order to calculate the amount of material loss (e.g. `propDamage` values multiplied by `propUnits` values).  
+There are other issues concerning to data quality but, for the sake of brevity, only this problem will be considered.
 
+<br>
 To start, let's assume that lower case `b`, `m` and `k` where introduced instead of its upper case counterparts.
-<br>
-<br>
+
 First, let's create two columns filled with zeroes as a future containers for our units (B, M, K) as numeric values (1e+9, 1e+6, 1e+3):
 ```{r}
 stormData[, `:=`(pUnits = 0, cUnits = 0)]
@@ -96,12 +105,11 @@ stormData[cropUnits %in% c("K","k"), "cUnits" := 1e+3
 ```
 Now we are ready to do the math!
 
+<br>
 We are going to calculate the monetary value of property and crop losses and tabulate the data:
 ```{r}
 stormData[, `:=`(propLoss = propDamage*pUnits, cropLoss = cropDamage*cUnits)]
-```
 
-```{r}
 cost <- stormData[, .(fatalities = sum(fatalities),
                       injuries = sum(injuries),
                       propLoss = sum(propLoss),
@@ -109,37 +117,46 @@ cost <- stormData[, .(fatalities = sum(fatalities),
                       by = event
                   ]
 
-cost <- cost[fatalities != 0 | injuries != 0 | propLoss != 0 | cropLoss != 0]
-
-cost[order(-fatalities,-injuries,-propLoss,-cropLoss)] %>% 
-     datatable(colnames = c('Property Loss' = 4, 'Crop Loss' = 5),
-              caption = "Table: Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)",
-              rownames = FALSE,
-              options = list(dom = 'ftp')) %>%
-     formatCurrency(c(4, 5), digits = 0)
-
-
+cost <- cost[fatalities != 0 | injuries != 0 | propLoss != 0 | cropLoss != 0] # Delete rows containing
+                                                                              # only zeroes
 ```
 
+```{r}
+## Generate table
+cost[order(-fatalities,-injuries,-propLoss,-cropLoss)] %>% 
+     datatable(colnames = c("Event", "Fatalities", "Injuries", "Property Loss", "Crop Loss"),
+               caption = htmltools::tags$caption(
+               style = 'caption-side: bottom; text-align: left;', "Data source: NOAA"),
+               rownames = FALSE,
+               options = list(dom = 'ftp')) %>%
+    formatCurrency(c(4, 5), digits = 0)
+```
+#### Table: Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011).
+
+In the table above you can search for your favourite natural disaster and see the human and material effects caused by it.
 
 # Results
 
-Most harmful events to population health:
+#### Most harmful events to population health:
 ```{r}
+## Detect fatalities
 cat("Deadliest weather event:", paste0(cost[which.max(cost$fatalities),event],"."),
     "\nIt accounts for",cost[,max(fatalities)],"fatalities between 1950 and 2011.")
-
+## Detect injuries
 cat("Weather event causing more injuries in the same period (1950-2011):",
     paste0(cost[which.max(cost$injuries),event],"."), "\nIt accounts for",
     cost[,max(injuries)], "injuries.")
 ```
 
+<br>
+Time to visualise the distribution of the harmful effects across the geography.
 ```{r}
+## Download file containing coodinates
 if(!file.exists("./Data/stormData.csv.bz2")) {
     download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
               "./Data/statesCoord.csv", method = "curl")
 }
-
+## Generate a file to be plotted
 states <- fread("./Data/statesCoord.csv", col.names = c("state","location","lat","lon"))
 
 dang <- stormData[, .(fatalities = sum(fatalities),
@@ -155,14 +172,42 @@ setorder(states,state)
 
 mapdata <- cbind(mapdata,states[,.(location,lat,lon)])
 mapdata[,`:=` (location = tolower(location))]
+mapdata <- mapdata[,.(state,location,casualties=fatalities+injuries,losses=propLoss+cropLoss,lat,lon)]
 ```
 
 ```{r}
+maptheme <- theme(text = element_text(family = 'Avenir', colour = '#092733'),
+                 panel.background = element_rect(fill = '#DDEDF3'),
+                 plot.title = element_text(size = 12, hjust = 0.5),
+                 plot.subtitle = element_text(size = 10, hjust = 0.5),
+                 legend.position = "bottom"
+                 )
+c <- ggplot(mapdata, aes(map_id = location)) +
+     geom_map(aes(fill = casualties),  color= "white", map = fifty_states) + 
+     expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+     coord_map() +
+     labs(title = "Total Casualties Caused by Extreme Weather Events in the U.S.",
+          subtitle = "1950-2011",
+          caption = "Data source: NOAA") +
+     geom_text(data = mapdata,  size=2, colour="white", 
+          aes(x = lon, y = lat, label = paste(state, casualties, sep = '\n'))
+         ) +
+     scale_x_continuous(breaks = NULL) + 
+     scale_y_continuous(breaks = NULL) +
+     labs(x = "", y = "") +
+     labs(fill = "Casualties")+
+     scale_fill_gradient(low = "#546E7A", high = "#A03232",
+                          guide = guide_colourbar(barwidth = 25, barheight = 0.4,
+                                             #put legend title on top of legend
+                                             title.position = "top")) +
+     maptheme +
+     fifty_states_inset_boxes()
+```
+```{r}
 
-ggplot() + geom_polygon(data=fifty_states, aes(x=long, y=lat, group = group),color="white", fill="grey92" ) + 
-  geom_point(data=mapdata, aes(x=lon, y=lat, size = fatalities), color="blue") + 
-  scale_size(name="", range = c(2, 20)) + 
-  guides(size=guide_legend("Fatalities 1950-2011")) +
-  theme_void()
+```
+```{r}
+
 ```
 
+     
