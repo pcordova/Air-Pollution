@@ -6,19 +6,34 @@ output:
     html_document: 
       theme: flatly
       highlight: pygments
-      toc: yes
+      toc: true
+      toc_float:
+          collapsed: false
       toc_depth: 5
 ---
-
+```{css, echo=FALSE}
+p {
+    font-size: 16px;
+}
+```
 ## Synopsis
+
+This study was created as part of the "Reproducible Research" JHU's course.  
+The goal of this assignment is to explore the NOAA Storm Database and answer some basic questions about severe weather events during the 1950-2011 period. Additionally, the code for the entire analysis must be shown.  
+It was found that:
+
+- Most harmful effects in terms of human casualties were those caused by tornadoes (both, fatalities and injuries)
+- Most harmful effects in terms of property damage were caused by floods
+- Most harmful effects in terms of crop loss were caused by drought
+
+Finally choropleth maps shows that the most affected U.S. state in terms of human casualties was Texas and the most affected state in terms of material loss was California.
 
 ## Data Processing
 
 #### Downloading and Reading Data
 
-First, let's do some "administrative", but necessary, preparation work.
-
-We are going to do some configuration, download and sub-setting data file, load required libraries, etc.
+First, let's do some "administrative", but necessary, preparation work.  
+We are going to do some configuration, download and sub-set the data file, load required libraries, etc.
 ```{r}
 options(scipen=999) # Turn off scientific notation globally
 
@@ -29,7 +44,8 @@ library(DT)
 library(ggplot2)
 library(fiftystater)
 library(patchwork)
-library(ggsn) # for scale bar
+library(ggsn) # For scale bar
+library(scales) # For currency format
 
 ## Create directory to store the file
 if(!dir.exists("Data")) {dir.create("Data")}
@@ -64,15 +80,17 @@ str(stormData)
 
 What about data integrity/quality?  
 Let's check for `NA` values:
-```{r}
-cat("There exists", sum(is.na(stormData)),"NA values")
+```{r, results='asis'}
+cat('- **There exists**', paste0("**",sum(is.na(stormData)),"**"),'**NA values**<br>')
 ```
+
 Nice!  
 
 <br>
 Time to take a look at relevant data to evaluate material losses.
 
-As reported in [this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf") from the **National Weather Service Storm Data Documentation**:  
+As reported in [this file]("https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf") from the National Weather Service Storm Data Documentation:  
+<br>
 
 > _Alphabetical characters used to signify magnitude include “K” for thousands, “M” for millions, and “B” for billions._
 
@@ -123,7 +141,7 @@ cost <- cost[fatalities != 0 | injuries != 0 | propLoss != 0 | cropLoss != 0] # 
 
 ```{r}
 ## Generate table
-cost[order(-fatalities,-injuries,-propLoss,-cropLoss)] %>% 
+t <- cost[order(-fatalities,-injuries,-propLoss,-cropLoss)] %>% 
      datatable(colnames = c("Event", "Fatalities", "Injuries", "Property Loss", "Crop Loss"),
                caption = htmltools::tags$caption(
                style = 'caption-side: bottom; text-align: left;', "Data source: NOAA"),
@@ -131,57 +149,90 @@ cost[order(-fatalities,-injuries,-propLoss,-cropLoss)] %>%
                options = list(dom = 'ftp')) %>%
     formatCurrency(c(4, 5), digits = 0)
 ```
-#### Table: Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011).
 
+<br>
+
+#### Table: Total Weather Events in the U.S., from Deadliest to less Harmful (1950-2011)
+```{r echo=FALSE}
+t
+```
 In the table above you can search for your favourite natural disaster and see the human and material effects caused by it.
 
-# Results
+<br>
 
-#### Most harmful events to population health:
-```{r}
+## Results
+
+#### Most harmful weather events to population health
+```{r, results = 'asis'}
 ## Detect fatalities
-cat("Deadliest weather event:", paste0(cost[which.max(cost$fatalities),event],"."),
-    "\nIt accounts for",cost[,max(fatalities)],"fatalities between 1950 and 2011.")
+cat("- **Deadliest weather event:", paste0(cost[which.max(cost$fatalities),event],"."),
+    "<br>It accounts for", cost[,max(fatalities)],
+    "fatalities between 1950 and 2011.**")
 ## Detect injuries
-cat("Weather event causing more injuries in the same period (1950-2011):",
-    paste0(cost[which.max(cost$injuries),event],"."), "\nIt accounts for",
-    cost[,max(injuries)], "injuries.")
+cat("- **Weather event causing more injuries in the same period (1950-2011):",
+    paste0(cost[which.max(cost$injuries),event],"."), "<br>It accounts for",
+    cost[,max(injuries)], "injuries.**")
+```
+<br>
+
+#### Most harmful weather events to property and crops
+```{r, results = 'asis'}
+## Detect fatalities
+cat("- **Most harmful weather event over property:", paste0(cost[which.max(cost$propLoss),event],"."),
+    "<br>It accounts for", dollar_format()(cost[,max(propLoss)]), "total loss between 1950 and 2011.**")
+## Detect injuries
+cat("- **Weather event causing more crop losses in the same period (1950-2011):",
+    paste0(cost[which.max(cost$cropLoss),event],"."), "<br>It accounts for",
+    dollar_format()(cost[,max(cropLoss)]), "total loss.**")
 ```
 
 <br>
-Time to visualise the distribution of the harmful effects across the geography.
+
+#### Distribution of the harmful weather effects across the U.S. geography
+
+To visualise the distribution of the harmful weather effects across the U.S. geography we need to do some additional data wrangling:
 ```{r}
-## Download file containing coodinates
+## Download file containing coordinates
 if(!file.exists("./Data/stormData.csv.bz2")) {
     download.file("https://raw.githubusercontent.com/pcordova/Weather-Events/main/statesCoord.csv",
               "./Data/statesCoord.csv", method = "curl")
 }
+
 ## Generate a file to be plotted
 states <- fread("./Data/statesCoord.csv", col.names = c("state","location","lat","lon"))
 
-dang <- stormData[, .(fatalities = sum(fatalities),
+effects <- stormData[, .(fatalities = sum(fatalities),
                       injuries = sum(injuries),
                       propLoss = sum(propLoss),
                       cropLoss = sum(cropLoss)),
                       by = state
                   ]
-mapdata <- dang[state %in% states$state]
+mapdata <- effects[state %in% states$state]
 
 setorder(mapdata,state)
 setorder(states,state)
 
 mapdata <- cbind(mapdata,states[,.(location,lat,lon)])
 mapdata[,`:=` (location = tolower(location))]
-mapdata <- mapdata[,.(state,location,casualties=fatalities+injuries,losses=propLoss+cropLoss,lat,lon)]
-```
+mapdata <- mapdata[,.(state,
+                      location,
+                      casualties = fatalities+injuries,
+                      losses = round((propLoss+cropLoss)/1e+6, digits = 1),
+                      lat,
+                      lon)]
 
-```{r}
+## We need a theme for our maps
 maptheme <- theme(text = element_text(family = 'Avenir', colour = '#092733'),
                  panel.background = element_rect(fill = '#DDEDF3'),
                  plot.title = element_text(size = 12, hjust = 0.5),
                  plot.subtitle = element_text(size = 10, hjust = 0.5),
                  legend.position = "bottom"
                  )
+```
+<br>
+Data is ready, time to create a couple of (choropleth) maps:
+```{r}
+## Generate a map showing human casualties (fatalities + injuries)
 c <- ggplot(mapdata, aes(map_id = location)) +
      geom_map(aes(fill = casualties),  color= "white", map = fifty_states) + 
      expand_limits(x = fifty_states$long, y = fifty_states$lat) +
@@ -190,24 +241,47 @@ c <- ggplot(mapdata, aes(map_id = location)) +
           subtitle = "1950-2011",
           caption = "Data source: NOAA") +
      geom_text(data = mapdata,  size=2, colour="white", 
-          aes(x = lon, y = lat, label = paste(state, casualties, sep = '\n'))
-         ) +
+          aes(x = lon, y = lat, label = paste(state, casualties, sep = '\n'))) +
      scale_x_continuous(breaks = NULL) + 
      scale_y_continuous(breaks = NULL) +
      labs(x = "", y = "") +
      labs(fill = "Casualties")+
      scale_fill_gradient(low = "#546E7A", high = "#A03232",
-                          guide = guide_colourbar(barwidth = 25, barheight = 0.4,
-                                             #put legend title on top of legend
-                                             title.position = "top")) +
+                         guide = guide_colourbar(barwidth = 25, barheight = 0.4,
+                                                 title.position = "top")) + #put legend title on top of legend
+     maptheme +
+     fifty_states_inset_boxes()
+
+## Generate a map showing material damage (property + crops)
+l <- ggplot(mapdata, aes(map_id = location)) +
+     geom_map(aes(fill = losses),  color= "white", map = fifty_states) + 
+     expand_limits(x = fifty_states$long, y = fifty_states$lat) +
+     coord_map() +
+     labs(title = "Total Financial Loss Caused by Extreme Weather Events in the U.S.",
+          subtitle = "1950-2011",
+          caption = "Data source: NOAA") +
+     geom_text(data = mapdata,  size=2, colour="white", 
+          aes(x = lon, y = lat, label = paste(state, losses, sep = '\n'))) +
+     scale_x_continuous(breaks = NULL) + 
+     scale_y_continuous(breaks = NULL) +
+     labs(x = "", y = "") +
+     labs(fill = "Loss Amount (USD Millions)")+
+     scale_fill_gradient(low = "#546E7A", high = "#A03232",
+                         guide = guide_colourbar(barwidth = 25, barheight = 0.4,
+                                                 title.position = "top")) + #put legend title on top of legend
      maptheme +
      fifty_states_inset_boxes()
 ```
-```{r}
-
+<br>
+Finally, let's do a couple of data visualisations:
+```{r, out.width="100%"}
+c
 ```
-```{r}
-
+<br>
+**Stay away from Texas during weather events!**
+<br>
+```{r, out.width="100%"}
+l
 ```
-
-     
+<br>
+**Hire a reliable insurance company if you live in California!**
